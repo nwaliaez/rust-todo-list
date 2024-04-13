@@ -1,86 +1,63 @@
-use std::{io, path::Path};
 
-use crate::storage::{load_tasks, save_task, Task};
+use std::{io, path::Path};
+use crate::storage::{load_tasks, save_tasks, Task, TaskList};
 
 pub fn add_task(file_path: &Path) {
-    let tasks = load_tasks(file_path).expect("Cannot load tasks");
-    let mut next_id = tasks.iter().map(|task| task.id).max().unwrap_or(0);
-    let mut task_list: Vec<Task> = tasks;
-    loop {
-        // Read task
-        let mut task = String::new();
-        io::stdin().read_line(&mut task).expect("Cannot read task");
+    let mut task_list = load_tasks(file_path).expect("Failed to load tasks");
 
-        if task.trim().eq_ignore_ascii_case("done") {
-            break;
-        }
-        next_id = next_id + 1;
-        let task = Task {
-            id: next_id,
-            description: task.trim().to_string(),
-            completed: false,
-        };
+    println!("Enter task description:");
+    let mut description = String::new();
+    io::stdin().read_line(&mut description).expect("Failed to read task description");
 
-        task_list.push(task);
-    }
+    let id = task_list.tasks.len() as i32 + 1;
+    let task = Task::new(id, description.trim().to_string());
+    task_list.tasks.push(task);
 
-    save_task(&task_list, file_path).unwrap();
+    save_tasks(&task_list, file_path).expect("Failed to save tasks");
 }
 
-pub fn list_task(file_path: &Path) {
-    let tasks = load_tasks(file_path).expect("Failed to load tasks");
-    if tasks.is_empty() {
+pub fn list_tasks(file_path: &Path) {
+    let task_list = load_tasks(file_path).expect("Failed to load tasks");
+
+    if task_list.tasks.is_empty() {
         println!("No tasks found");
         return;
     }
 
-    for task in tasks {
-        let status = if task.completed {
-            "Completed"
-        } else {
-            "Pending"
-        };
-        println!(
-            "id: {}, description: {}, Status: {}",
-            task.id, task.description, status
-        );
+    for task in &task_list.tasks {
+        let status = if task.completed { "Completed" } else { "Pending" };
+        println!("id: {}, description: {}, Status: {}", task.id, task.description, status);
     }
 }
 
-pub fn done_task(file_path: &Path) {
-    let mut tasks = load_tasks(file_path).expect("Failed to load tasks");
+pub fn complete_task(file_path: &Path) {
+    let mut task_list = load_tasks(file_path).expect("Failed to load tasks");
 
     println!("Enter the ID of the task you want to mark as done:");
-    let mut task_id = String::new();
-    io::stdin()
-        .read_line(&mut task_id)
-        .expect("Failed to read input");
-    let task_id: i32 = task_id.trim().parse().expect("Enter valid id");
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).expect("Failed to read input");
 
-    for task in tasks.iter_mut() {
-        if task.id == task_id {
+    if let Ok(id) = input.trim().parse::<i32>() {
+        if let Some(task) = task_list.tasks.iter_mut().find(|task| task.id == id) {
             task.completed = true;
-            break;
+            save_tasks(&task_list, file_path).expect("Failed to save tasks");
+            return;
         }
     }
-
-    save_task(&tasks, file_path).expect("Faile to save");
+    println!("Task not found");
 }
+
 pub fn remove_task(file_path: &Path) {
-    let mut tasks = load_tasks(file_path).expect("Failed to load tasks");
+    let mut task_list = load_tasks(file_path).expect("Failed to load tasks");
 
     println!("Enter the ID of the task you want to remove:");
-    let mut task_id = String::new();
-    io::stdin()
-        .read_line(&mut task_id)
-        .expect("Failed to read input");
-    let task_id: i32 = task_id.trim().parse().expect("Enter valid id");
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).expect("Failed to read input");
 
-    let pos = tasks
-        .iter()
-        .position(|task| task.id == task_id)
-        .expect("not found");
-
-    tasks.remove(pos);
-    save_task(&tasks, file_path).expect("Failed to save");
+    if let Ok(id) = input.trim().parse::<i32>() {
+        task_list.tasks.retain(|task| task.id != id);
+        save_tasks(&task_list, file_path).expect("Failed to save tasks");
+        return;
+    }
+    println!("Task not found");
 }
