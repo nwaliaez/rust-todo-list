@@ -21,6 +21,6 @@ fn main() {
         "list" => list_task(file_path),
         "done" => done_task(file_path),
         "remove" => remove_task(file_path),
-        _ => println!("unknown command"),
+        _ => println!("Unknown command"),
     }
 }
